@@ -634,15 +634,21 @@ def _create_annotation_labels_for_classifier(
     if collection is None:
         raise ValueError("Collection {collection_id} doesn't exist")
     # Check if the annotation label with the classifier name and class
-    # names exists and if not create it.
+    # names exists and if not create it. A classifier loaded from file, or a new
+    # one with the same name, finds the labels an earlier run created.
     if classifier.annotation_label_ids is None:
         annotation_label_ids = []
         for class_name in classifier.few_shot_classifier.classes:
-            annotation_label = annotation_label_resolver.create(
+            label_name = classifier.few_shot_classifier.name + "_" + class_name
+            annotation_label = annotation_label_resolver.get_by_label_name(
+                session=session,
+                dataset_id=collection.dataset_id,
+                label_name=label_name,
+            ) or annotation_label_resolver.create(
                 session=session,
                 label=AnnotationLabelCreate(
                     dataset_id=collection.dataset_id,
-                    annotation_label_name=classifier.few_shot_classifier.name + "_" + class_name,
+                    annotation_label_name=label_name,
                 ),
             )
             annotation_label_ids.append(annotation_label.annotation_label_id)

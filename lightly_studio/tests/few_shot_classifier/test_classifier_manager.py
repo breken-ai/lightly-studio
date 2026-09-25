@@ -878,6 +878,59 @@ class TestClassifierManager:
         ).annotations
         assert len(annotations_in_classifier_collection) == 10
 
+    def test_run_classifier__reuses_labels_of_a_loaded_classifier(  # noqa: PLR0913
+        self,
+        db_session: Session,
+        samples: list[ImageTable],
+        mocker: MockerFixture,
+        tmp_path: Path,
+        classifier: ClassifierEntry,
+        classifier_manager: ClassifierManager,
+        embedding_model: EmbeddingModelTable,
+    ) -> None:
+        """Running a classifier loaded from file reuses the labels an earlier run created."""
+        collection_id = samples[0].sample.collection_id
+        mocker.patch.object(RandomForest, "predict", return_value=[[0.9]] * len(samples))
+        sample_embedding_resolver.create_many(
+            session=db_session,
+            sample_embeddings=[
+                SampleEmbeddingCreate(
+                    sample_id=sample.sample_id,
+                    embedding=np.array([0.1, 0.2, 0.3], dtype=np.float32),
+                    embedding_model_id=embedding_model.embedding_model_id,
+                )
+                for sample in samples
+            ],
+        )
+        classifier_manager.run_classifier(
+            session=db_session,
+            classifier_id=classifier.classifier_id,
+            collection_id=collection_id,
+        )
+        save_path = tmp_path / "classifier.pkl"
+        classifier_manager.save_classifier_to_file(
+            classifier_id=classifier.classifier_id, file_path=save_path
+        )
+
+        # Load it back, as after a restart, and run it on the same collection.
+        loaded = classifier_manager.load_classifier_from_file(
+            session=db_session,
+            file_path=save_path,
+            collection_id=collection_id,
+        )
+        classifier_manager.run_classifier(
+            session=db_session,
+            classifier_id=loaded.classifier_id,
+            collection_id=collection_id,
+        )
+
+        assert loaded.annotation_label_ids == classifier.annotation_label_ids
+        annotations = annotation_resolver.get_all(
+            session=db_session,
+            filters=AnnotationsFilter(annotation_types=[AnnotationType.CLASSIFICATION]),
+        ).annotations
+        assert len(annotations) == len(samples)
+
     def test_run_classifier__no_samples_in_database(
         self,
         db_session: Session,

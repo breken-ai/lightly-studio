@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Combine typicality and similarity computation and sampling into one backend request that continues if the frontend disconnects.
 - Fix the `Values` field in the distribution panel using a larger font than the other fields.
 - Return 409 instead of 500 for text and image search on a collection whose embedding space cannot embed the query, and 502 when its embedding server cannot be used.
+- Fix running a few-shot classifier that was loaded from file, or created with the name of an earlier one, failing on the labels the earlier run created.
 
 ### Security
 
